@@ -4,6 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 import time
 
 class Player():
@@ -11,7 +12,7 @@ class Player():
         self._link_episodio = link_episodio
         self._volume = volume
         self._navegador = navegador
-        self._driver = None
+        self._driver = self._iniciar_navegador()
         pass
 
     def _iniciar_navegador(self)-> webdriver:
@@ -32,30 +33,44 @@ class Player():
         except Exception as e:
             print(e)
 
-    def executar_video(self):
+    def _checar_se_acabou(self)->bool:
         try:
-            video_element = WebDriverWait(self._driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, "video")))            
-            print('Achei videos?',video_element)
-            div_element = self._driver.find_elements(By.CSS_SELECTOR, 'div[aria-label="Video player"]')
-            print('Divs de video',len(div_element))
-            self._driver.execute_script("arguments[0].muted = true;", video_element)
+            total_videos = self._driver.find_elements(By.CSS_SELECTOR, 'video')
+            video_element = total_videos[0]
+            has_ended = self._driver.execute_script("return arguments[0].duration;", video_element)
+            # print(has_ended)
+            if not has_ended:
+                return True
+            else:
+                return None
+        except Exception as e:
+            print(e)
+            return None
 
-            div_element = div_element[0]
-            div_element.click()
-            time.sleep(3)            
-            self._driver.execute_script("arguments[0].requestFullscreen();", video_element)
+    def executar_video(self):
+        try:            
+            time.sleep(10)
+            total_videos = self._driver.find_elements(By.CSS_SELECTOR, 'video')
+            video_element = total_videos[0]
+            # video_element = WebDriverWait(self._driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, "video")))            
+            # print('Achei videos?',video_element)
+            pausado = self._driver.execute_script("return arguments[0].paused;", video_element)
+            action_chains = ActionChains(self._driver)
+            action_chains.move_to_element(video_element).click().perform()
+
+            self._driver.execute_script("return arguments[0].requestFullscreen();", video_element)
             self._driver.execute_script("arguments[0].muted = false;", video_element)
-            self._driver.execute_script("arguments[0].volume = 0.3;", video_element)
-            time.sleep(10)                        
-            duration = self._driver.execute_script("return arguments[0].duration;", video_element)
-            print(duration)
-            has_ended = self._driver.execute_script("return arguments[0].ended;", video_element)
-            print('Acabou?',has_ended)
-            while not has_ended:
-                has_ended = self._driver.execute_script("return arguments[0].ended;", video_element)
+            video_element.click()
 
-            print('Acabou!!!')
-                            
-            # self._driver.execute_script("arguments[0].play();", video_element)
+            self._driver.execute_script("arguments[0].play();", video_element)
+
+            
+            self._driver.execute_script("arguments[0].volume = 0.3;", video_element)
+            
+            ended = self._checar_se_acabou()
+            while not ended:
+                ended = self._checar_se_acabou()
+
+            self._driver.close()
         except Exception as e:
             print(e)
