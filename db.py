@@ -17,6 +17,14 @@ def iniciar_banco():
         )
     ''')
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS historico_episodios (
+            historico_id INTEGER PRIMARY KEY,
+            ultimo_ep TEXT,
+            data_hora TEXT
+        )
+    ''')
+
     conn.commit()
     return conn
 
