@@ -19,6 +19,20 @@ def get_todos_episodios():
     except Exception as e:
         """"""
 
+def get_one_episode_info(temporada:str,n_episodio:str)->str:
+    try:
+        db = iniciar_banco()
+        cursor = db.cursor()
+        cursor.execute(f"""SELECT *,  STRFTIME('%Y-%m-%d', SUBSTR(data_lancamento, 7) || '-' || SUBSTR(data_lancamento, 4, 2) || '-' || SUBSTR(data_lancamento, 1, 2)) AS date_column
+        from episodios_southpark
+        where temporada = '{temporada}' and n_episodio = '{n_episodio}'
+        """)
+
+        row = cursor.fetchone()     
+        return dict(row)
+    except Exception as e:
+        print(e)
+
 def atualizar_historico(ultimo_ep:str):
     try:
         current_datetime = datetime.now()
@@ -26,6 +40,9 @@ def atualizar_historico(ultimo_ep:str):
 
         db = iniciar_banco()
         cursor = db.cursor()
+        cursor.execute(f"""DELETE FROM historico_episodios""")
+        db.commit()
+        
         cursor.execute(f"""INSERT INTO historico_episodios (ultimo_ep,data_hora)
         VALUES ('{ultimo_ep}', '{formatted_date_time}')""")
 

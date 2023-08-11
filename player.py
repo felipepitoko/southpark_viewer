@@ -64,8 +64,8 @@ class Player():
 
             self._driver.execute_script("arguments[0].play();", video_element)
 
-            
-            self._driver.execute_script("arguments[0].volume = 0.3;", video_element)
+            print('Vou iniciar com o volume',self._volume)
+            self._driver.execute_script(f"arguments[0].volume = {self._volume};", video_element)
             
             ended = self._checar_se_acabou()
             while not ended:

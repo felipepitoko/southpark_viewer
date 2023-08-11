@@ -10,7 +10,7 @@ from tqdm import tqdm
 def multithreaded_function(my_list,funcao):
     results = []
 
-    with ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=4) as executor:
         futures = []
 
         for item in my_list:
@@ -36,12 +36,65 @@ def salvar_no_banco(episodio:dict):
     except Exception as e:
         print(e)
 
+def gerar_lista_temporadas()->list:
+    lista_links = []
+    try:
+        service = Service()
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-extensions')
+        chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        driver = webdriver.Chrome(service=service,options=chrome_options)
+        # driver = webdriver.Firefox(service=service)
+
+        driver.get('https://www.southparkstudios.com.br/seasons/south-park')
+
+        dropdown = driver.find_element(By.CSS_SELECTOR,"div[data-testid='Dropdown']")
+        drop_btn = dropdown.find_element(By.CSS_SELECTOR,"button")
+        drop_btn.click()
+
+        lista_itens = dropdown.find_element(By.CSS_SELECTOR,"ul")
+        lista_itens = lista_itens.find_elements(By.CSS_SELECTOR,"li")
+
+        # print('Quantidade de temporadas:',len(lista_itens))
+
+        lista_links = []
+        for idx, temporada in enumerate(lista_itens):
+            temporada = temporada.find_elements(By.CSS_SELECTOR,'a')
+            if temporada:            
+                temporada = temporada[0]
+                link_temporada = temporada.get_attribute('href')
+                # print(temporada.text)
+                # print(link_temporada)
+                if link_temporada:
+                    lista_links.append(link_temporada)
+
+                if idx == 0:
+                    div_episodios = driver.find_element(By.CSS_SELECTOR,'div#content-episódios-completos-season')            
+                    episodios = pegar_info_episodios(div_episodios)            
+                    for episodio in episodios:
+                        salvar_no_banco(episodio)
+            
+        # while True:
+        #     True
+        driver.close()
+
+        return lista_links
+    except Exception as e:
+        print(e)
+        driver.close()
+        print('Fechou')
+
 def pegar_info_episodios(div_episodios):
     try:
         # print('------------------')
         ul = div_episodios.find_element(By.CSS_SELECTOR, 'ul')
         li = ul.find_elements(By.CSS_SELECTOR, 'li')
         episodios = []
+        # print('episodios encontrados:',len(li))
         for item in li:            
             anchor = item.find_element(By.CSS_SELECTOR,'a')
             link_episodio = anchor.get_attribute('href')
@@ -68,15 +121,16 @@ def pegar_info_episodios(div_episodios):
             # print(temp_ep,nome_episodio)
             # print(descricao)
             # print(data_lancamento)
-
-            episodios.append({
+            episodio = {
                 'link_episodio': link_episodio,
                 'titulo': nome_episodio.replace("'",""),
                 'descricao': descricao.replace("'",""),
                 'temporada': temporada.replace('T',''),
                 'n_episodio': episodio.replace('E',''),
                 'data_lancamento': data_lancamento
-            })
+            }
+            # print(episodio)
+            episodios.append(episodio)
             # div_descricao = partes[1]
             # header_descricao = div_descricao.find_element(By.TAG_NAME,'h2')
         return episodios
@@ -86,6 +140,7 @@ def pegar_info_episodios(div_episodios):
 
 def acessou_pegou(link_episodio:str):
     try:
+        # print('Temporada',link_episodio)
         service = Service()
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_argument("--disable-gpu")
@@ -96,8 +151,11 @@ def acessou_pegou(link_episodio:str):
         chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
         driver = webdriver.Chrome(service=service,options=chrome_options)
         driver.get(link_episodio)
+
+        buscar_mais_episodios(driver)
         div_episodios = driver.find_element(By.CSS_SELECTOR,'div#content-episódios-completos-season')            
         info_episodios = pegar_info_episodios(div_episodios)
+        
         for episodio in info_episodios:
             """"""
             salvar_no_banco(episodio)
@@ -105,50 +163,23 @@ def acessou_pegou(link_episodio:str):
     except Exception as e:
         print(e)
 
-lista_links = []
-try:
-    service = Service()
-    # driver = webdriver.Firefox(service=service)
-    driver = webdriver.Chrome(service=service)
-
-    driver.get('https://www.southparkstudios.com.br/seasons/south-park')
-
-    dropdown = driver.find_element(By.CSS_SELECTOR,"div[data-testid='Dropdown']")
-    drop_btn = dropdown.find_element(By.CSS_SELECTOR,"button")
-    drop_btn.click()
-
-    lista_itens = dropdown.find_element(By.CSS_SELECTOR,"ul")
-    lista_itens = lista_itens.find_elements(By.CSS_SELECTOR,"li")
-    temporadas = []
-
-    print('Quantidade de temporadas:',len(lista_itens))
 
 
+def buscar_mais_episodios(driver:webdriver.Chrome)->bool:
+    try:
+        butons = driver.find_elements(By.CSS_SELECTOR,'button')
 
-    for idx, temporada in enumerate(lista_itens):
-        temporada = temporada.find_elements(By.CSS_SELECTOR,'a')
-        if temporada:            
-            temporada = temporada[0]
-            link_temporada = temporada.get_attribute('href')
-            # print(temporada.text)
-            # print(link_temporada)
-            if link_temporada:
-                lista_links.append(link_temporada)
+        for buton in butons:
+            if buton.text == 'MOSTRAR MAIS EPISÓDIOS':
+                buton.click()
+                time.sleep(10)
+    except Exception as e:
+        print(e)
 
-            if idx == 0:
-                div_episodios = driver.find_element(By.CSS_SELECTOR,'div#content-episódios-completos-season')            
-                episodios = pegar_info_episodios(div_episodios)            
-                for episodio in episodios:
-                    salvar_no_banco(episodio)
-        
-    # while True:
-    #     True
-    driver.close()
-except Exception as e:
-    print(e)
-    driver.close()
-    print('Fechou')
+lista_links = gerar_lista_temporadas()
 
 print('Temporadas:',len(lista_links))
+
+# acessou_pegou(lista_links[-1])
 multithreaded_function(my_list=lista_links,funcao=acessou_pegou)
 print('Fim do codigo!')
